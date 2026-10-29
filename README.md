@@ -1,21 +1,21 @@
 # Convo — Backend
 
-REST API and WebSocket server for the Convo chat app. Pairs with the [Convo Frontend](../frontend).
+REST API and authenticated Socket.IO server for the Convo chat app. Pairs with the [Convo Frontend](https://github.com/BugByHarsh/Chat-app-Frontend).
 
 ## Tech Stack
 
 - **Node.js** + **Express**
 - **MongoDB** + **Mongoose**
-- **Socket.io** — real-time events
-- **JWT** — authentication
+- **Socket.io** — real-time events and presence
+- **JWT** — HTTP and Socket.IO authentication
 - **bcryptjs** — password hashing
 - **Google Auth Library** — Google OAuth verification
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/yourname/convo-backend.git
-cd convo-backend
+git clone https://github.com/BugByHarsh/Chat-app-backend.git
+cd Chat-app-backend
 npm install
 ```
 
@@ -23,16 +23,27 @@ Create a `.env` file in the root:
 
 ```env
 MONGO_URL=your_mongodb_connection_string
-SECRET_KEY=your_jwt_secret
+SECRET_KEY=your_long_random_jwt_secret
 GOOGLE_CLIENT_ID=your_google_client_id
+FRONTEND_URL=http://localhost:5173
 PORT=5000
 ```
 
-Then run:
+`FRONTEND_URL` can contain comma-separated allowed web origins. If omitted, CORS allows any origin; set it explicitly in production. HTTP and Socket.IO use JWT bearer authentication, not cookies.
+
+Run the server with:
 
 ```bash
-npm run dev
+npm start
 ```
+
+## Security behavior
+
+- Message history and sending require the authenticated user to belong to the requested chat.
+- Message content is trimmed and capped at 5,000 characters.
+- Socket.IO verifies the JWT during connection; the server derives the user ID from the token rather than trusting a client-supplied ID.
+- Typing and read-receipt events validate chat membership and derive recipients from the chat.
+- Presence supports multiple active sockets per account.
 
 ## API Reference
 
@@ -51,63 +62,39 @@ npm run dev
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/getAllChats` | Get all chats for current user, or create a new one |
+| POST | `/api/getAllChats` | List current user's chats; create/open a direct chat with `{ "userId": "..." }` |
 
 ### Messages — `/msg`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/` | Send a message |
+| POST | `/` | Send a message with `{ "chatID": "...", "content": "..." }` |
 | GET | `/:chatID` | Get paginated messages (`?before=<messageId>`) |
 
 ## Socket Events
 
+All connections must provide the JWT in the Socket.IO handshake auth object: `{ token: "<JWT>" }`.
+
 | Event | Direction | Description |
 |-------|-----------|-------------|
-| `register` | Client → Server | Register user's socket ID |
-| `isTyping` | Client → Server | Notify recipient user is typing |
-| `stoppedTyping` | Client → Server | Notify recipient stopped typing |
-| `msgsRead` | Client → Server | Mark messages as read |
+| `isTyping` | Client → Server | Notify chat participants that current user is typing; payload includes `chatId` |
+| `stoppedTyping` | Client → Server | Notify chat participants typing stopped; payload includes `chatId` |
+| `msgsRead` | Client → Server | Mark incoming messages as read; payload includes `chatId` |
+| `getOnlineUsers` | Server → Client | Current online user IDs |
 | `newMessage` | Server → Client | Deliver a new message |
-| `newChat` | Server → Client | Notify of a new chat created |
-| `typing` | Server → Client | Forward typing indicator |
-| `stoppedTyping` | Server → Client | Forward stopped typing |
-| `markRead` | Server → Client | Notify messages were read |
-
-## Project Structure
-
-```
-├── Config/
-│   ├── database.js
-│   └── tokenFunctions.js
-├── Controllers/
-│   ├── chatController.js
-│   ├── msgController.js
-│   └── userController.js
-├── Models/
-│   ├── chatModel.js
-│   ├── msgModel.js
-│   └── userModel.js
-├── Routes/
-│   ├── chatRoutes.js
-│   ├── msgRoutes.js
-│   └── userRoutes.js
-└── socketio.js
-```
+| `newChat` | Server → Client | Notify a recipient about a newly created direct chat |
+| `typing`, `stoppedTyping`, `markRead` | Server → Client | Typing and read-receipt updates |
 
 ## Deployment
 
-Deployed on **Render**. Set the following environment variables in your Render service settings:
+Set these environment variables in your Render service:
 
-```
+```env
 MONGO_URL=your_mongodb_connection_string
-SECRET_KEY=your_jwt_secret
+SECRET_KEY=your_long_random_jwt_secret
 GOOGLE_CLIENT_ID=your_google_client_id
+FRONTEND_URL=https://we-convo.vercel.app
 PORT=5000
 ```
 
-Make sure to set the start command to:
-
-```bash
-node index.js
-```
+Use `npm start` as the start command.
