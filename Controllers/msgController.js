@@ -144,7 +144,9 @@ const deleteMsgController = asyncHandler(async (req, res) => {
     const { message, chat } = result;
     if (String(message.sender) !== String(req.user._id)) return res.status(403).json({ message: "You can only delete your own messages." });
     if (!message.deletedAt) {
-        message.content = "";
+        // Mongoose's required String validator rejects an empty string.
+        // Keep a harmless placeholder in storage; the UI renders the deleted state.
+        message.content = "This message was deleted";
         message.deletedAt = new Date();
         message.reactions = [];
         await message.save();
