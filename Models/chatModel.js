@@ -6,6 +6,7 @@ const chatSchema = new mongoose.Schema(
         users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
         latestMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
         groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        hiddenFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     },
     { timestamps: true }
 );
