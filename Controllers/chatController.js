@@ -12,12 +12,27 @@ const populateChats = (query) => query
     })
     .sort({ updatedAt: -1 });
 
+const deleteChatForUserController = asyncHandler(async (req, res) => {
+    const { chatId } = req.params || {};
+    if (!mongoose.isValidObjectId(chatId)) {
+        return res.status(400).json({ message: "A valid chat ID is required." });
+    }
+
+    const chat = await Chat.findOneAndUpdate(
+        { _id: chatId, users: req.user._id },
+        { $addToSet: { hiddenFor: req.user._id } },
+        { new: true, projection: { _id: 1 } }
+    );
+    if (!chat) return res.status(404).json({ message: "Conversation not found." });
+    return res.status(200).json({ message: "Chat deleted for you.", chatId: String(chat._id) });
+});
+
 const createChatController = asyncHandler(async (req, res) => {
     const user = req.user;
     const { userId } = req.body || {};
 
     if (userId === undefined) {
-        const fullChat = await populateChats(Chat.find({ users: user._id }));
+        const fullChat = await populateChats(Chat.find({ users: user._id, hiddenFor: { $ne: user._id } }));
         return res.status(200).json({ fullChat });
     }
 
@@ -52,3 +67,4 @@ const createChatController = asyncHandler(async (req, res) => {
 });
 
 module.exports = createChatController;
+module.exports.deleteChatForUserController = deleteChatForUserController;
