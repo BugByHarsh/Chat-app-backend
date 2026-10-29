@@ -41,7 +41,8 @@ const sendMsgController = asyncHandler(async (req, res) => {
         }
     }
 
-    return res.status(201).json(populatedMessage);
+    // Keep the existing frontend contract: it checks for HTTP 200.
+    return res.status(200).json(populatedMessage);
 });
 
 const getChatMsgController = asyncHandler(async (req, res) => {
