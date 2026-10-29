@@ -5,6 +5,7 @@ const Chat = require("../Models/chatModel");
 const { io } = require("../socketio");
 
 const MAX_MESSAGE_LENGTH = 5000;
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const ALLOWED_REACTIONS = new Set(["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉"]);
 
 async function populateMessage(message) {
@@ -127,6 +128,10 @@ const editMsgController = asyncHandler(async (req, res) => {
     const { message, chat } = result;
     if (String(message.sender) !== String(req.user._id)) return res.status(403).json({ message: "You can only edit your own messages." });
     if (message.deletedAt) return res.status(409).json({ message: "Deleted messages cannot be edited." });
+    const createdAt = new Date(message.createdAt).getTime();
+    if (!Number.isFinite(createdAt) || Date.now() - createdAt > EDIT_WINDOW_MS) {
+        return res.status(403).json({ message: "Messages can only be edited within 15 minutes of sending." });
+    }
 
     message.content = trimmedContent;
     message.editedAt = new Date();
