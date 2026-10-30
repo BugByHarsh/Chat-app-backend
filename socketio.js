@@ -13,7 +13,7 @@ const configuredOrigins = (process.env.FRONTEND_URL || "")
 
 const corsOptions = {
   origin: configuredOrigins.length ? configuredOrigins : "*",
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   credentials: false,
 };
 
