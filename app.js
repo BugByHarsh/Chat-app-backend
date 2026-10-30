@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const conn = require("./Config/database");
@@ -5,8 +7,6 @@ const userRoutes = require("./Routes/userRoutes");
 const chatRoutes = require("./Routes/chatRoutes");
 const msgRoutes = require("./Routes/msgRoutes");
 const { app, server, corsOptions } = require("./socketio");
-require("dotenv").config();
-
 app.use(cors(corsOptions));
 app.use(express.json());
 
