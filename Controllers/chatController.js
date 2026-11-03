@@ -62,7 +62,39 @@ const createChatController = asyncHandler(async (req, res) => {
     const { userId } = req.body || {};
 
     if (userId === undefined) {
-        const fullChat = await populateChats(Chat.find({ users: user._id, hiddenFor: { $ne: user._id } }));
+        // Recover a hidden conversation only when a genuinely new incoming
+        // message arrived after this user's clear point. The message query
+        // separately applies clearedFor so old history stays out of view.
+        const hiddenChats = await Chat.find({
+            users: user._id,
+            hiddenFor: user._id,
+        }).populate("latestMessage", "sender createdAt");
+
+        for (const hiddenChat of hiddenChats) {
+            const latest = hiddenChat.latestMessage;
+            if (!latest || String(latest.sender) === String(user._id)) continue;
+
+            const clearedEntry = hiddenChat.clearedFor.find(
+                (entry) => String(entry.user) === String(user._id)
+            );
+            const clearedAt = clearedEntry?.clearedAt
+                ? new Date(clearedEntry.clearedAt).getTime()
+                : 0;
+            const latestAt = latest.createdAt
+                ? new Date(latest.createdAt).getTime()
+                : 0;
+
+            if (latestAt > clearedAt) {
+                await Chat.updateOne(
+                    { _id: hiddenChat._id },
+                    { $pull: { hiddenFor: user._id } }
+                );
+            }
+        }
+
+        const fullChat = await populateChats(
+            Chat.find({ users: user._id, hiddenFor: { $ne: user._id } })
+        );
         return res.status(200).json({ fullChat });
     }
 
