@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const User = require("../Models/userModel");
 const Chat = require("../Models/chatModel");
+const Message = require("../Models/msgModel");
 const { io } = require("../socketio");
 
 const populateChats = (query) => query
@@ -21,10 +22,33 @@ const deleteChatForUserController = asyncHandler(async (req, res) => {
     const chat = await Chat.findOneAndUpdate(
         { _id: chatId, users: req.user._id },
         { $addToSet: { hiddenFor: req.user._id } },
-        { new: true, projection: { _id: 1 } }
+        { new: true, projection: { _id: 1, users: 1, hiddenFor: 1 } }
     );
     if (!chat) return res.status(404).json({ message: "Conversation not found." });
-    return res.status(200).json({ message: "Chat deleted for you.", chatId: String(chat._id) });
+
+    const allParticipantsDeleted = chat.users.length > 0 &&
+        chat.users.every((memberId) =>
+            chat.hiddenFor.some((hiddenId) => String(hiddenId) === String(memberId))
+        );
+
+    if (allParticipantsDeleted) {
+        await Message.deleteMany({ chatId: chat._id });
+        await Chat.deleteOne({ _id: chat._id });
+        for (const memberId of chat.users) {
+            io.to(String(memberId)).emit("chatDeletedForEveryone", { chatId: String(chat._id) });
+        }
+        return res.status(200).json({
+            message: "Conversation and its messages were permanently deleted.",
+            chatId: String(chat._id),
+            permanentlyDeleted: true,
+        });
+    }
+
+    return res.status(200).json({
+        message: "Chat deleted for you.",
+        chatId: String(chat._id),
+        permanentlyDeleted: false,
+    });
 });
 
 const createChatController = asyncHandler(async (req, res) => {
