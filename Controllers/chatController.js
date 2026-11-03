@@ -76,13 +76,6 @@ const createChatController = asyncHandler(async (req, res) => {
         users: { $all: [user._id, targetUser._id], $size: 2 },
     });
 
-    if (existingChat) {
-        await Chat.updateOne(
-            { _id: existingChat._id },
-            { $pull: { hiddenFor: user._id } }
-        );
-    }
-
     if (!existingChat) {
         const chatItem = await Chat.create({
             chatName: `${user._id} and ${targetUser._id}`,
