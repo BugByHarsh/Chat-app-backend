@@ -47,7 +47,7 @@ const sendMsgController = asyncHandler(async (req, res) => {
         return res.status(413).json({ message: `Messages must be ${MAX_MESSAGE_LENGTH} characters or fewer.` });
     }
 
-    const chat = await Chat.findOne({ _id: chatID, users: req.user._id }).select("_id users");
+    const chat = await Chat.findOne({ _id: chatID, users: req.user._id }).select("_id users clearedFor");
     if (!chat) return res.status(404).json({ message: "Conversation not found." });
 
     let replyMessage = null;
@@ -66,10 +66,12 @@ const sendMsgController = asyncHandler(async (req, res) => {
         replyTo: replyMessage?._id || null,
     });
     const populatedMessage = await populateMessage(message);
+    const recipients = chat.users.filter((memberId) => String(memberId) !== String(req.user._id));
     await Chat.updateOne(
         { _id: chat._id },
         {
             $set: { latestMessage: populatedMessage._id },
+            ...(recipients.length ? { $pull: { hiddenFor: { $in: recipients } } } : {}),
         }
     );
     await emitToChatMembers(chat, "newMessage", populatedMessage, req.user._id);
@@ -82,7 +84,7 @@ const getChatMsgController = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: "A valid chat ID is required." });
     }
 
-    const chat = await Chat.findOne({ _id: chatID, users: req.user._id }).select("_id users");
+    const chat = await Chat.findOne({ _id: chatID, users: req.user._id }).select("_id users clearedFor");
     if (!chat) return res.status(404).json({ message: "Conversation not found." });
 
     const LIMIT = 30;
@@ -92,6 +94,8 @@ const getChatMsgController = asyncHandler(async (req, res) => {
     }
 
     const query = { chatId: chat._id };
+    const clearedEntry = chat.clearedFor.find((entry) => String(entry.user) === String(req.user._id));
+    if (clearedEntry?.clearedAt) query.createdAt = { $gt: clearedEntry.clearedAt };
     if (before) query._id = { $lt: before };
 
     const messages = await Message.find(query)

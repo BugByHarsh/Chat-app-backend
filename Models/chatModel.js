@@ -7,6 +7,10 @@ const chatSchema = new mongoose.Schema(
         latestMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
         groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         hiddenFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+        clearedFor: [{
+            user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+            clearedAt: { type: Date, required: true },
+        }],
     },
     { timestamps: true }
 );

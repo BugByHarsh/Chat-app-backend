@@ -19,12 +19,18 @@ const deleteChatForUserController = asyncHandler(async (req, res) => {
         return res.status(400).json({ message: "A valid chat ID is required." });
     }
 
-    const chat = await Chat.findOneAndUpdate(
-        { _id: chatId, users: req.user._id },
-        { $addToSet: { hiddenFor: req.user._id } },
-        { new: true, projection: { _id: 1, users: 1, hiddenFor: 1 } }
-    );
+    const chat = await Chat.findOne({ _id: chatId, users: req.user._id });
     if (!chat) return res.status(404).json({ message: "Conversation not found." });
+
+    const userId = String(req.user._id);
+    const clearedEntry = chat.clearedFor.find((entry) => String(entry.user) === userId);
+    if (clearedEntry) clearedEntry.clearedAt = new Date();
+    else chat.clearedFor.push({ user: req.user._id, clearedAt: new Date() });
+
+    if (!chat.hiddenFor.some((hiddenId) => String(hiddenId) === userId)) {
+        chat.hiddenFor.push(req.user._id);
+    }
+    await chat.save();
 
     const allParticipantsDeleted = chat.users.length > 0 &&
         chat.users.every((memberId) =>
@@ -45,7 +51,7 @@ const deleteChatForUserController = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json({
-        message: "Chat deleted for you.",
+        message: "Chat deleted for you. New incoming messages will start a fresh visible conversation.",
         chatId: String(chat._id),
         permanentlyDeleted: false,
     });
