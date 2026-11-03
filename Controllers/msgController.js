@@ -66,7 +66,14 @@ const sendMsgController = asyncHandler(async (req, res) => {
         replyTo: replyMessage?._id || null,
     });
     const populatedMessage = await populateMessage(message);
-    await Chat.findByIdAndUpdate(chat._id, { latestMessage: populatedMessage._id });
+    const recipients = chat.users.filter((memberId) => String(memberId) !== String(req.user._id));
+    await Chat.updateOne(
+        { _id: chat._id },
+        {
+            $set: { latestMessage: populatedMessage._id },
+            ...(recipients.length ? { $pull: { hiddenFor: { $in: recipients } } } : {}),
+        }
+    );
     await emitToChatMembers(chat, "newMessage", populatedMessage, req.user._id);
     return res.status(200).json(populatedMessage);
 });
