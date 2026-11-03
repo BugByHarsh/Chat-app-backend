@@ -52,6 +52,13 @@ const createChatController = asyncHandler(async (req, res) => {
         users: { $all: [user._id, targetUser._id], $size: 2 },
     });
 
+    if (existingChat) {
+        await Chat.updateOne(
+            { _id: existingChat._id },
+            { $pull: { hiddenFor: user._id } }
+        );
+    }
+
     if (!existingChat) {
         const chatItem = await Chat.create({
             chatName: `${user._id} and ${targetUser._id}`,
@@ -62,7 +69,7 @@ const createChatController = asyncHandler(async (req, res) => {
         io.to(String(targetUser._id)).emit("newChat", populatedChat);
     }
 
-    const fullChat = await populateChats(Chat.find({ users: user._id }));
+    const fullChat = await populateChats(Chat.find({ users: user._id, hiddenFor: { $ne: user._id } }));
     return res.status(200).json({ fullChat });
 });
 
